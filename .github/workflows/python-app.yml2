@@ -1,0 +1,55 @@
+name: CI - Pytest + Playwright
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:  # permet de lancer manuellement depuis l'onglet Actions
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    concurrency:
+      group: ci-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright browsers (Linux deps incluses)
+        run: |
+          python -m playwright install --with-deps
+
+      - name: Run pytest
+        run: |
+          pytest -q --maxfail=1 \
+            --browser chromium \
+            --tracing retain-on-failure \
+            --video retain-on-failure \
+            --screenshot only-on-failure
+
+      - name: Upload artifacts (reports / traces / videos / screenshots)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts
+          path: |
+            **/playwright-report/**/*
+            **/test-results/**/*
+            **/screenshots/**/*
+            **/videos/**/*
+          if-no-files-found: ignore
